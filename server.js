@@ -1,6 +1,8 @@
 const { ApolloServer } = require("apollo-server-express");
 const express = require("express");
 const { gql } = require("apollo-server-express");
+const fs = require('fs');
+const path = require('path');
 
 // Dati di esempio
 const users = [
@@ -85,28 +87,35 @@ async function startServer(options = {}) {
   app.use((req, res, next) => {
     if (process.env.DEBUG_LOG_AUTH_HEADERS === 'true') {
       const interestingHeaders = [
-        "authorization",
-        "authentication",
-        "x-api-key",
-        "x-auth-token",
-        "proxy-authorization",
+        'authorization',
+        'authentication',
+        'x-api-key',
+        'x-auth-token',
+        'proxy-authorization'
       ];
       const collected = {};
       for (const h of interestingHeaders) {
         if (req.headers[h]) {
-          const raw = Array.isArray(req.headers[h])
-            ? req.headers[h].join(",")
-            : req.headers[h];
-            // Mascheriamo token lunghi per evitare esfiltrazione completa
-          const masked =
-            typeof raw === "string" && raw.length > 16
-              ? raw.slice(0, 8) + "..." + raw.slice(-4)
-              : raw;
+          const raw = Array.isArray(req.headers[h]) ? req.headers[h].join(',') : req.headers[h];
+          const masked = typeof raw === 'string' && raw.length > 16
+            ? raw.slice(0, 8) + '...' + raw.slice(-4)
+            : raw;
           collected[h] = masked;
         }
       }
       if (Object.keys(collected).length > 0) {
-        console.log("[DEBUG][AUTH_HEADERS]", collected);
+        const line = JSON.stringify({ ts: new Date().toISOString(), path: req.path, headers: collected });
+        console.log('[DEBUG][AUTH_HEADERS]', collected);
+        if (process.env.AUTH_HEADERS_LOG_FILE) {
+          try {
+            const logPath = path.resolve(process.env.AUTH_HEADERS_LOG_FILE);
+            fs.appendFile(logPath, line + '\n', err => {
+              if (err) console.error('[AUTH_HEADERS_LOG_FILE][ERROR]', err.message);
+            });
+          } catch (e) {
+            console.error('[AUTH_HEADERS_LOG_FILE][EXCEPTION]', e.message);
+          }
+        }
       }
     }
     next();
