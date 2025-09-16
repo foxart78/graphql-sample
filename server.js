@@ -103,18 +103,22 @@ async function startServer(options = {}) {
           collected[h] = masked;
         }
       }
-      if (Object.keys(collected).length > 0) {
-        const line = JSON.stringify({ ts: new Date().toISOString(), path: req.path, headers: collected });
+      const hasAuth = Object.keys(collected).length > 0;
+      const lineObj = { ts: new Date().toISOString(), path: req.path, headers: collected, hasAuthHeaders: hasAuth };
+      const line = JSON.stringify(lineObj);
+      if (hasAuth) {
         console.log('[DEBUG][AUTH_HEADERS]', collected);
-        if (process.env.AUTH_HEADERS_LOG_FILE) {
-          try {
-            const logPath = path.resolve(process.env.AUTH_HEADERS_LOG_FILE);
-            fs.appendFile(logPath, line + '\n', err => {
-              if (err) console.error('[AUTH_HEADERS_LOG_FILE][ERROR]', err.message);
-            });
-          } catch (e) {
-            console.error('[AUTH_HEADERS_LOG_FILE][EXCEPTION]', e.message);
-          }
+      } else {
+        console.log('[DEBUG][AUTH_HEADERS][NONE]');
+      }
+      if (process.env.AUTH_HEADERS_LOG_FILE) {
+        try {
+          const logPath = path.resolve(process.env.AUTH_HEADERS_LOG_FILE);
+          fs.appendFile(logPath, line + '\n', err => {
+            if (err) console.error('[AUTH_HEADERS_LOG_FILE][ERROR]', err.message);
+          });
+        } catch (e) {
+          console.error('[AUTH_HEADERS_LOG_FILE][EXCEPTION]', e.message);
         }
       }
     }
