@@ -83,6 +83,38 @@ const resolvers = {
 async function startServer(options = {}) {
   const { port = process.env.PORT || 4000, listen = true } = options;
   const app = express();
+  
+  // Middleware di log dettagliato per tutte le chiamate (se DEBUG_DETAILED_REQUESTS=true)
+  app.use((req, res, next) => {
+    if (process.env.DEBUG_DETAILED_REQUESTS === 'true') {
+      const start = Date.now();
+      const clientIP = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+      const userAgent = req.get('User-Agent') || 'unknown';
+      
+      console.log(`[DETAILED_REQUEST] ${req.method} ${req.originalUrl || req.url}`);
+      console.log(`  - IP: ${clientIP}`);
+      console.log(`  - User-Agent: ${userAgent}`);
+      console.log(`  - Headers:`, JSON.stringify(req.headers, null, 2));
+      if (req.body && Object.keys(req.body).length > 0) {
+        console.log(`  - Body:`, JSON.stringify(req.body, null, 2));
+      }
+      
+      // Log della risposta
+      const originalSend = res.send;
+      res.send = function(data) {
+        const duration = Date.now() - start;
+        console.log(`[DETAILED_RESPONSE] ${req.method} ${req.originalUrl || req.url} - ${res.statusCode} (${duration}ms)`);
+        if (data && typeof data === 'string' && data.length < 1000) {
+          console.log(`  - Response Body:`, data);
+        } else if (data) {
+          console.log(`  - Response Body: [${typeof data}, ${data.length || 'unknown'} chars/bytes]`);
+        }
+        return originalSend.call(this, data);
+      };
+    }
+    next();
+  });
+
   // Middleware di debug per loggare alcuni header di autenticazione (solo se DEBUG_LOG_AUTH_HEADERS=true)
   app.use((req, res, next) => {
     if (process.env.DEBUG_LOG_AUTH_HEADERS === 'true') {
